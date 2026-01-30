@@ -7,6 +7,12 @@ export const configValidationSchema = Joi.object({
   DB_USERNAME: Joi.string().required(),
   DB_PASSWORD: Joi.string().required(),
   DB_DATABASE: Joi.string().required(),
+  // Redis (optional)
+  REDIS_URL: Joi.string(),
+  REDIS_HOST: Joi.string(),
+  REDIS_PORT: Joi.number().default(6379),
+  REDIS_PASSWORD: Joi.string(),
+  REDIS_DB: Joi.number(),
   // Back-compat: allow existing JWT_SECRET, but prefer JWT_ACCESS_SECRET moving forward.
   JWT_SECRET: Joi.string(),
   JWT_ACCESS_SECRET: Joi.string(),

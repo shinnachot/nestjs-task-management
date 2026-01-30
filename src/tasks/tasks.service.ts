@@ -17,12 +17,16 @@ export class TasksService {
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
+  private buildTaskCacheKey(id: string, userId: string): string {
+    return `task_${id}_user_${userId}`;
+  }
+
   async getTasks(filterDto: GetTasksFilterDto, user: User): Promise<Task[]> {
     return this.tasksRepository.getTasks(filterDto, user);
   }
 
   async getTaskById(id: string, user: User): Promise<Task> {
-    const cacheKey = `task_${id}_user_${user.id}`;
+    const cacheKey = this.buildTaskCacheKey(id, user.id);
     const cachedTask = await this.cacheManager.get<Task>(cacheKey);
     if (cachedTask) {
       console.log('Task cached', cachedTask);
@@ -33,7 +37,7 @@ export class TasksService {
     if (!found) {
       throw new NotFoundException(`Task with ID "${id}" not found`);
     }
-    await this.cacheManager.set(cacheKey, found, 60000);
+    await this.cacheManager.set(cacheKey, found, 60000); // 60 seconds
     return found;
   }
 
@@ -46,6 +50,8 @@ export class TasksService {
     if (result.affected === 0) {
       throw new NotFoundException(`Task with ID "${id}" not found`);
     }
+    // prevent stale cache for "getTaskById"
+    await this.cacheManager.del(this.buildTaskCacheKey(id, user.id));
   }
 
   async updateTaskStatus(id: string, status: TaskStatus, title: string, user: User): Promise<Task> {
@@ -56,6 +62,9 @@ export class TasksService {
     task.status = status;
     task.title = title;
     await this.tasksRepository.save(task);
+    // prevent stale cache for "getTaskById" + list cache
+    await this.cacheManager.del(this.buildTaskCacheKey(id, user.id));
+    await this.tasksRepository.invalidateTasksListCache(user.id);
 
     return task;
   }
