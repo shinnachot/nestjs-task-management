@@ -27,18 +27,31 @@ export class TasksService {
 
   async getTaskById(id: string, user: User): Promise<Task> {
     const cacheKey = this.buildTaskCacheKey(id, user.id);
-    const cachedTask = await this.cacheManager.get<Task>(cacheKey);
-    if (cachedTask) {
-      console.log('Task cached', cachedTask);
-      return cachedTask;
-    }
-    const found = await this.tasksRepository.findByIdAndUser(id, user);
+    const ttlMs = 60_000;
 
-    if (!found) {
-      throw new NotFoundException(`Task with ID "${id}" not found`);
+    try {
+      return await this.cacheManager.wrap(
+        cacheKey,
+        async () => {
+          const found = await this.tasksRepository.findByIdAndUser(id, user);
+          if (!found) {
+            throw new NotFoundException(`Task with ID "${id}" not found`);
+          }
+          return found;
+        },
+        ttlMs,
+      );
+    } catch (error: unknown) {
+      // If Redis/cache is down, still serve from DB.
+      this.logger.warn(
+        `Cache wrap failed for key "${cacheKey}": ${error instanceof Error ? error.message : String(error)}`,
+      );
+      const found = await this.tasksRepository.findByIdAndUser(id, user);
+      if (!found) {
+        throw new NotFoundException(`Task with ID "${id}" not found`);
+      }
+      return found;
     }
-    await this.cacheManager.set(cacheKey, found, 60000); // 60 seconds
-    return found;
   }
 
   async createTask(createTaskDto: CreateTaskDto, user: User): Promise<Task> {

@@ -7,6 +7,6 @@ import { CacheService } from './cache.service';
 @Module({
   imports: [CacheConfigModule], // Ensure CacheConfigModule is included
   providers: [CacheService],
-  controllers: [CacheController],
+  controllers: [],
 })
 export class CacheModule {}

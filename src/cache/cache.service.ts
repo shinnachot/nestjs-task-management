@@ -9,13 +9,14 @@ export class CacheService {
 
   async setCache(key: string, value: string): Promise<void> {
     console.log(`Setting cache with key: ${key}, value: ${value}`);
-    await this.cache.set(key, value, 60); // TTL as a number (in seconds)
+    // TTL is milliseconds in @nestjs/cache-manager (v3) / cache-manager (v6)
+    await this.cache.set(key, value, 60_000);
   }
 
   async getCache(key: string): Promise<string | undefined> {
     console.log(`Fetching cache for key: ${key}`);
     const result = await this.cache.get<string>(key);
-    return result === null ? undefined : result;
+    return result ?? undefined;
   }
 
   async delCache(key: string): Promise<void> {
