@@ -22,7 +22,7 @@ import { UsersRepository } from './users.repository';
           configService.get<string>('JWT_SECRET') ??
           'defaultSecret',
         signOptions: {
-          expiresIn: configService.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '3600s',
+          expiresIn: configService.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '60s',
         },
       }),
     }),

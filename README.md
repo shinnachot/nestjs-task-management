@@ -28,6 +28,7 @@
 ## Auth: Access token + Refresh token
 
 This API issues:
+
 - **Access token**: short-lived JWT used in `Authorization: Bearer <token>`
 - **Refresh token**: longer-lived JWT used to obtain new access tokens when the access token expires
 
@@ -35,7 +36,7 @@ This API issues:
 
 - **`JWT_ACCESS_SECRET`** (or legacy **`JWT_SECRET`**): secret for access tokens
 - **`JWT_REFRESH_SECRET`**: secret for refresh tokens (strongly recommended to set in production)
-- **`JWT_ACCESS_EXPIRES_IN`**: default `3600s`
+- **`JWT_ACCESS_EXPIRES_IN`**: default `60s`
 - **`JWT_REFRESH_EXPIRES_IN`**: default `7d`
 
 ### Endpoints

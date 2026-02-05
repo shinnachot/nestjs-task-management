@@ -1,4 +1,5 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './user.entity';
@@ -8,6 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from 'src/tasks/dto/jwt-payload.interface';
 import { UsersRepository } from './users.repository';
+import { Cache } from 'cache-manager';
 
 export type AuthTokens = {
   accessToken: string;
@@ -22,6 +24,7 @@ export class AuthService {
     private readonly userRepo: UsersRepository,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   async signUp(authCredentialsDto: AuthCredentialsDto): Promise<void> {
@@ -54,11 +57,16 @@ export class AuthService {
     }
 
     const user = await this.userRepository.findOneBy({ username: payload.username });
-    if (!user?.refreshTokenHash) {
+    if (!user) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const isValid = await bcrypt.compare(refreshToken, user.refreshTokenHash);
+    const storedHash = await this.getRefreshTokenHash(user.id);
+    if (!storedHash) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const isValid = await bcrypt.compare(refreshToken, storedHash);
     if (!isValid) {
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -71,7 +79,7 @@ export class AuthService {
   }
 
   async logout(userId: string): Promise<void> {
-    await this.userRepository.update({ id: userId }, { refreshTokenHash: null });
+    await this.deleteRefreshTokenHash(userId);
   }
 
   private getAccessSecret(): string {
@@ -87,11 +95,52 @@ export class AuthService {
   }
 
   private getAccessExpiresIn(): string {
-    return this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '3600s';
+    return this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '60s';
   }
 
   private getRefreshExpiresIn(): string {
     return this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '7d';
+  }
+
+  private buildRefreshTokenCacheKey(userId: string): string {
+    return `auth:rt_hash:user:${userId}`;
+  }
+
+  private parseExpiresInToMs(expiresIn: string): number | undefined {
+    const raw = expiresIn.trim();
+    const re = /^(\d+)\s*(ms|s|m|h|d)?$/i;
+    const match = re.exec(raw);
+    if (!match) return undefined;
+
+    const amount = Number(match[1]);
+    const unit = (match[2] ?? 's').toLowerCase();
+    if (!Number.isFinite(amount)) return undefined;
+
+    switch (unit) {
+      case 'ms':
+        return amount;
+      case 's':
+        return amount * 1000;
+      case 'm':
+        return amount * 60 * 1000;
+      case 'h':
+        return amount * 60 * 60 * 1000;
+      case 'd':
+        return amount * 24 * 60 * 60 * 1000;
+      default:
+        return undefined;
+    }
+  }
+
+  private async getRefreshTokenHash(userId: string): Promise<string | null> {
+    const key = this.buildRefreshTokenCacheKey(userId);
+    const value = await this.cacheManager.get<string>(key);
+    return value ?? null;
+  }
+
+  private async deleteRefreshTokenHash(userId: string): Promise<void> {
+    const key = this.buildRefreshTokenCacheKey(userId);
+    await this.cacheManager.del(key);
   }
 
   private async signAccessToken(payload: JwtPayload): Promise<string> {
@@ -111,6 +160,12 @@ export class AuthService {
   private async setRefreshTokenHash(userId: string, refreshToken: string): Promise<void> {
     const salt = await bcrypt.genSalt();
     const hash = await bcrypt.hash(refreshToken, salt);
-    await this.userRepository.update({ id: userId }, { refreshTokenHash: hash });
+    const key = this.buildRefreshTokenCacheKey(userId);
+    const ttlMs = this.parseExpiresInToMs(this.getRefreshExpiresIn());
+    if (ttlMs) {
+      await this.cacheManager.set(key, hash, ttlMs);
+    } else {
+      await this.cacheManager.set(key, hash);
+    }
   }
 }

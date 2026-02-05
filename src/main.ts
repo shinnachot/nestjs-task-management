@@ -23,7 +23,7 @@ async function bootstrap() {
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, documentFactory);
   app.useGlobalInterceptors(new TransformInterceptor());
-  const port = 3000;
+  const port = 3001;
   await app.listen(port);
   logger.log(`Application listening on port ${port}`);
 }

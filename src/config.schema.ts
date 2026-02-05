@@ -17,6 +17,6 @@ export const configValidationSchema = Joi.object({
   JWT_SECRET: Joi.string(),
   JWT_ACCESS_SECRET: Joi.string(),
   JWT_REFRESH_SECRET: Joi.string().default('defaultRefreshSecret'),
-  JWT_ACCESS_EXPIRES_IN: Joi.string().default('3600s'),
+  JWT_ACCESS_EXPIRES_IN: Joi.string().default('60s'),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
 }).or('JWT_SECRET', 'JWT_ACCESS_SECRET');
