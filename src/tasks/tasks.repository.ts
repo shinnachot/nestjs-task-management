@@ -66,6 +66,7 @@ export class TasksRepository {
     try {
       const cached = await this.redis.get(cacheKey);
       if (cached) {
+        Logger.warn('Cached tasks', { cached });
         return JSON.parse(cached) as Task[];
       }
     } catch (error: unknown) {
@@ -97,6 +98,7 @@ export class TasksRepository {
           `Redis cache write failed (key="${cacheKey}"): ${this.formatUnknownError(error)}`,
         );
       }
+      Logger.warn('Get new Task');
       return tasks;
     } catch (error: any) {
       this.logger.error(

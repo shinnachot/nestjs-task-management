@@ -1,15 +1,15 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from './user.entity';
+import * as bcrypt from 'bcrypt';
+import { Cache } from 'cache-manager';
+import { JwtPayload } from 'src/tasks/dto/jwt-payload.interface';
 import { Repository } from 'typeorm';
 import { AuthCredentialsDto } from './dto/auth-credentials.dto';
-import * as bcrypt from 'bcrypt';
-import { JwtService } from '@nestjs/jwt';
-import { JwtPayload } from 'src/tasks/dto/jwt-payload.interface';
+import { User } from './user.entity';
 import { UsersRepository } from './users.repository';
-import { Cache } from 'cache-manager';
 
 export type AuthTokens = {
   accessToken: string;
@@ -95,11 +95,11 @@ export class AuthService {
   }
 
   private getAccessExpiresIn(): string {
-    return this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '60s';
+    return this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '1m';
   }
 
   private getRefreshExpiresIn(): string {
-    return this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '7d';
+    return this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '5m';
   }
 
   private buildRefreshTokenCacheKey(userId: string): string {
